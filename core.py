@@ -42,10 +42,9 @@ def setup():
     # AGENT 0 = EXPERT
     # AGENT 1 = TOTAL EVIDENCE STRATEGY
     # AGENT 2 = PREEMPTION STRATEGY
-    # The Expert is an expert
-    Agents[0,:,0] = [1, 0.9, 0.9]         
-    # The other agents aren't very clever 
-    Agents[1:,0,0] = 0.5
+    # The Expert is an expert 
+    Agents[0,:,0] = [1, 0.5, 0.9]         
+    # The other agents aren't very clever Agents[1:,0,0] = 0.5
     Agents[1:,1,0] = 0.5
     Agents[1:,2,0] = 0.5
 
@@ -72,13 +71,26 @@ def expectation(pdf):
     # Correct for inaccuracies that result in out of bounds
     if (e > 1): e = 1
     if (e < 0): e = 0
-    return 0
+    return e
 
 def update_credence(cre, msgs, trfs):
-    pterm = 1
+    # Calculate the expected values first
+    # plt.plot(rho,trfs[0])
+    # plt.show()
+    exps = [expectation(trf) for trf in trfs]
+    print(exps)
+        
+
+    pterm = cre 
     for i in range(0,len(msgs)):
-        print(msgs)
-    return 0    
+        pterm *= exps[i] if msgs[i] else 1 - exps[i]
+    
+    npterm = 1 - cre
+    for i in range(0,len(msgs)):
+        npterm *= 1 - exps[i] if msgs[i] else exps[i]
+
+    new_cre = pterm / (pterm + npterm)    
+    print(new_cre)
 
     
 def step():
@@ -86,9 +98,8 @@ def step():
     apt = Agents[0,1,0]
     cre = Agents[0,2,0]
     print3(Agents)
-    print('Hallo')
     if fcoin(act):
-        new_cre = update_credence(cre, [fcoin(act)], [Trusts[1,1,:]])
+        new_cre = update_credence(cre, [fcoin(apt)], [Trusts[1,1,:]])
         # Agents[0,2,t+1] = new_cre
     
 
