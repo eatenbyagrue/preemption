@@ -10,7 +10,7 @@ import core as co
 # Parameters
 # Model assumes target propostion P to be true
 NUM_AGENTS = 3
-TIME_STEPS = 2
+TIME_STEPS = 10
 TRUST_RESOLUTION = 99
 # Credence must be this high to assert p (or  non-p)
 ASSERT_THRESHOLD = 0.7999
@@ -19,13 +19,18 @@ AUTHORITY_THRESHOLD = 0.85
 # Delta of Expected Values of Trust functions must be this high to recognize
 # authority.
 AUTHORITY_DELTA = 0.1
-# EXPERT Activity, Aptitude, Credence,
-EXPERT_ACTIVITY = 0.8
-EXPERT_APTITUDE = 0.85
-EXPERT_CREDENCE = 0.6
-# EXPERT Trust function parameters, Approx. normal distributed
-EXPERT_SELF_MU = 0.8
-EXPERT_SELF_VAR = 0.005
+# Activity, Aptitude, Credence,
+EXP_ACT = 0.9
+EXP_APT = 0.85
+EXP_CRE = 0.6
+EXP_CRE_PARAM = (0.8, 0.02)
+LAY_ACT = 0.5
+LAY_APT = 0.5
+#  Trust function parameters, Approx. normal distributed
+# (mean, variance)
+EXP_SELF_PARAM = (0.8, 0.005)
+LAY_EXP_PARAM = (0.8, 0.02)
+LAY_SELF_PARAM = (0.55, 0.01)
 ###############################################################################
 # Initialisations
 rho = np.linspace(0.0001, 0.9999, TRUST_RESOLUTION)
@@ -49,14 +54,16 @@ def setup():
     Agents = np.random.rand(NUM_AGENTS, 5, 1)
     # For this simple model, there is just one Expert
     # The Expert is an actual expert
-    Agents[0, :, 0] = [EXPERT_ACTIVITY, EXPERT_APTITUDE, EXPERT_CREDENCE, 0, 0]
+    a, b = ut.estimate_parameters(EXP_CRE_PARAM[0], EXP_CRE_PARAM[1])
+    ec = np.random.beta(a, b)
+    Agents[0, :, 0] = [EXP_ACT, EXP_APT, ec, 0, 0]
     # The other agents aren't particularly good inquirer
     # ACTIVITY
     Agents[1:, 0, :] = 0.5
     # APTITUDE
-    Agents[1:, 1, 0] = 0.55
-    # CREDENCE
-    Agents[1:, 2, 0] = 0.55
+    Agents[1:, 1, 0] = 0.5
+    # CREDENCE is uniformly distributed
+    Agents[1:, 2, 0] = np.random.uniform(1e-12, 1)
     # Agents 1 is a TEVer, 2 is a PREEMPTer
     Agents[1, 3, 0] = 0
     Agents[2, 3, 0] = 1
@@ -68,15 +75,18 @@ def setup():
 
     Trusts = np.zeros((NUM_AGENTS, NUM_AGENTS, TRUST_RESOLUTION))
 
-    alpha, beta = ut.estimate_parameters(EXPERT_SELF_MU, EXPERT_SELF_VAR)
+    alpha, beta = ut.estimate_parameters(EXP_SELF_PARAM[0], EXP_SELF_PARAM[1])
+
     Trusts[0, 0, :] = stats.beta.pdf(rho, alpha, beta)
     for i in range(1, NUM_AGENTS):
         # The agents recognized the expert
-        Trusts[i, 0, :] = stats.beta.pdf(rho, 3, 1)
+        a, b = ut.estimate_parameters(LAY_EXP_PARAM[0],
+                                      LAY_EXP_PARAM[1])
+        Trusts[i, 0, :] = stats.beta.pdf(rho, a, b)
         # The agents are slightly overconfident
-        Trusts[i, i, :] = stats.beta.pdf(rho, 5, 4)
-        # The expert does not think very much of the other agents
-        Trusts[0, i, :] = stats.beta.pdf(rho, 5, 5)
+        a, b = ut.estimate_parameters(LAY_SELF_PARAM[0],
+                                      LAY_SELF_PARAM[1])
+        Trusts[i, i, :] = stats.beta.pdf(rho, a, b)
 
 
 def step(t):
@@ -180,6 +190,18 @@ def step(t):
             Trusts[s['to'], s['from'], :] = co.update_trf(c, s, Trusts, rho)
 
 
+def total_score(creds):
+    return sum([(1 - c)**2 for c in creds])
+
+
+def end_score(creds):
+    return (1 - creds[-1])**2
+
+
+def begin_score(creds):
+    return (1 - creds[0])**2
+
+
 def drawstep(i, gs):
     ax = plt.subplot(gs[0, :2])
     color = 1 - (i/TIME_STEPS)
@@ -210,10 +232,24 @@ def drawcredences(gs):
     plt.show()
 
 
-setup()
+def run():
+    setup()
 
-gs = gridspec.GridSpec(3, 3)
-for i in range(0, TIME_STEPS):
-    drawstep(i, gs)
-    step(i)
-drawcredences(gs)
+    gs = gridspec.GridSpec(3, 3)
+    gs
+    for i in range(0, TIME_STEPS):
+        # drawstep(i, gs)
+        step(i)
+    return (total_score(Agents[0, 2, :]),
+            begin_score(Agents[0, 2, :]),
+            end_score(Agents[0, 2, :]),
+            # TEV AGENT'S CREDENCE
+            total_score(Agents[1, 2, :]),
+            begin_score(Agents[1, 2, :]),
+            end_score(Agents[1, 2, :]),
+            # PREEMPTION Agent's Credence
+            total_score(Agents[2, 2, :]),
+            begin_score(Agents[2, 2, :]),
+            end_score(Agents[2, 2, :]),
+            )
+    # drawcredences(gs)
