@@ -11,11 +11,12 @@ import core as co
 # Model assumes target propostion P to be true
 NUM_AGENTS = 3
 TIME_STEPS = 10
-TRUST_RESOLUTION = 99
+TRUST_RESOLUTION = 999
 # Credence must be this high to assert p (or  non-p)
-ASSERT_THRESHOLD = 0.7999
+ASSERT_THRESHOLD = 0.8
 # Expected Value of Trust function must be this high to recognize authority
-AUTHORITY_THRESHOLD = 0.85
+AUTHORITY_THRESHOLD = 0.82
+AUTHORITY_THRESHOLD_PARAM = (0.85, 0.005)
 # Delta of Expected Values of Trust functions must be this high to recognize
 # authority.
 AUTHORITY_DELTA = 0.1
@@ -29,7 +30,7 @@ LAY_APT = 0.5
 #  Trust function parameters, Approx. normal distributed
 # (mean, variance)
 EXP_SELF_PARAM = (0.8, 0.005)
-LAY_EXP_PARAM = (0.8, 0.02)
+LAY_EXP_PARAM = (0.8, 0.01)
 LAY_SELF_PARAM = (0.55, 0.01)
 ###############################################################################
 # Initialisations
@@ -37,7 +38,7 @@ rho = np.linspace(0.0001, 0.9999, TRUST_RESOLUTION)
 t = 0
 
 
-def setup():
+def setup(time_steps=TIME_STEPS):
     """SETUP AGENTS & TRUST FUNCTIONS
     Agents(i,j,t). i = agent, j = attribute, t = time
     j = 0: activity,
@@ -49,8 +50,8 @@ def setup():
           'preemption-mode': authority testimony preempts own evidence
     """
 
-    global Agents, Trusts
-    # Starting Credences are uniformly distributed
+    global Agents, Trusts, TIME_STEPS
+    TIME_STEPS = time_steps
     Agents = np.random.rand(NUM_AGENTS, 5, 1)
     # For this simple model, there is just one Expert
     # The Expert is an actual expert
@@ -63,6 +64,7 @@ def setup():
     # APTITUDE
     Agents[1:, 1, 0] = 0.5
     # CREDENCE is uniformly distributed
+    # Agents[1:, 2, 0] = 0.6 
     Agents[1:, 2, 0] = np.random.uniform(1e-12, 1)
     # Agents 1 is a TEVer, 2 is a PREEMPTer
     Agents[1, 3, 0] = 0
@@ -204,28 +206,47 @@ def begin_score(creds):
 
 def drawstep(i, gs):
     ax = plt.subplot(gs[0, :2])
-    color = 1 - (i/TIME_STEPS)
+    color = 1 - (i/TIME_STEPS)*0.8 - 0.2
     ax.set_xlabel(r'$\rho$')
-    ax.set_ylabel(r'$\tau(\rho)$')
+    ax.set_ylabel(r'$\tau_{\iota\varepsilon}(\rho)$')
     plt.plot(rho, Trusts[0, 0, :], color=str(color))
-    plt.axvline(x=co.expectation(Trusts[0, 0, :], rho), color=(1, color, 1))
-    plt.subplot(gs[1, 0])
+    # plt.axvline(x=co.expectation(Trusts[0, 0, :], rho), color=(1, color, 1))
+
+    ax = plt.subplot(gs[1, 0])
+    ax.set_xlabel(r'$\rho$')
+    ax.set_ylabel(r'$\tau_{\iota\alpha}(\rho)$')
     plt.plot(rho, Trusts[1, 1, :], color=str(color))
-    plt.subplot(gs[1, 1])
+
+    ax = plt.subplot(gs[1, 1])
+    ax.set_xlabel(r'$\rho$')
+    ax.set_ylabel(r'$\tau_{\varepsilon\alpha}(\rho)$')
     plt.plot(rho, Trusts[1, 0, :], color=str(color))
 
-    plt.subplot(gs[2, 0])
+    ax = plt.subplot(gs[2, 0])
+    ax.set_xlabel(r'$\rho$')
+    ax.set_ylabel(r'$\tau_{\iota\beta}(\rho)$')
     plt.plot(rho, Trusts[2, 2, :], color=str(color))
-    plt.subplot(gs[2, 1])
+
+    ax = plt.subplot(gs[2, 1])
+    ax.set_xlabel(r'$\rho$')
+    ax.set_ylabel(r'$\tau_{\varepsilon\beta}(\rho)$')
     plt.plot(rho, Trusts[2, 0, :], color=str(color))
 
 
 def drawcredences(gs):
-    plt.subplot(gs[0, 2])
+    ax = plt.subplot(gs[0, 2])
+    ax.set_xlabel(r'$t$')
+    ax.set_ylabel(r'$C_{\varepsilon}(p)$')
     plt.plot(Agents[0, 2, :])
-    plt.subplot(gs[1, 2])
+
+    ax = plt.subplot(gs[1, 2])
+    ax.set_xlabel(r'$t$')
+    ax.set_ylabel(r'$C_{\alpha}(p)$')
     plt.plot(Agents[1, 2, :])
-    plt.subplot(gs[2, 2])
+
+    ax = plt.subplot(gs[2, 2])
+    ax.set_xlabel(r'$t$')
+    ax.set_ylabel(r'$C_{\beta}(p)$')
     plt.plot(Agents[2, 2, :])
     plt.plot(Agents[2, 4, :])
     plt.tight_layout()
@@ -234,22 +255,26 @@ def drawcredences(gs):
 
 def run():
     setup()
-
-    gs = gridspec.GridSpec(3, 3)
-    gs
+    # gs = gridspec.GridSpec(3, 3)
     for i in range(0, TIME_STEPS):
         # drawstep(i, gs)
         step(i)
-    return (total_score(Agents[0, 2, :]),
-            begin_score(Agents[0, 2, :]),
-            end_score(Agents[0, 2, :]),
-            # TEV AGENT'S CREDENCE
-            total_score(Agents[1, 2, :]),
-            begin_score(Agents[1, 2, :]),
-            end_score(Agents[1, 2, :]),
-            # PREEMPTION Agent's Credence
-            total_score(Agents[2, 2, :]),
-            begin_score(Agents[2, 2, :]),
-            end_score(Agents[2, 2, :]),
-            )
+
     # drawcredences(gs)
+    return {'ets': total_score(Agents[0, 2, :]),
+            'ebs': begin_score(Agents[0, 2, :]),
+            'ees': end_score(Agents[0, 2, :]),
+            # TEV AGENT'S Scores
+            'tbc': Agents[1, 2, 0],
+            'tts': total_score(Agents[1, 2, :]),
+            'tbs': begin_score(Agents[1, 2, :]),
+            'tes': end_score(Agents[1, 2, :]),
+            # PREEMPTION Agent's scores
+            'pbc': Agents[2, 2, 0],
+            'pts': total_score(Agents[2, 2, :]),
+            'pbs': begin_score(Agents[2, 2, :]),
+            'pes': end_score(Agents[2, 2, :]),
+            }
+
+
+run()

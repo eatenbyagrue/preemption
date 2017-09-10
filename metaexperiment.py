@@ -1,31 +1,24 @@
-# -*- coding: utf-8 -*-
-import numpy as np
+# -*- coding: utf-8 -*- # import numpy as np
 import experiment
+import matplotlib.pyplot as plt
 
-NUM_TRIALS = 999
+NUM_TRIALS = 9999
 
 results = []
 
 for _ in range(NUM_TRIALS):
     results.append(experiment.run())
 
-tev = [r for r in results if r[5] > r[8]]
-end_tev = 0
-end_pre = 0
-tot_tev = 0
-tot_pre = 0
+tev_x = [r['tbc'] for r in results]
+tev_y = [r['tes'] for r in results]
 
-for r in results:
-    if r[5] == r[8] or r[3] == r[6]:
-        continue 
-    if r[5] > r[8]:
-        end_tev += 1
-    else:
-        end_pre += 1
-    if r[3] > r[6]:
-        tot_tev += 1
-    else:
-        tot_pre += 1
+pre_x = [r['pbc'] for r in results]
+pre_y = [r['pes'] for r in results]
 
-print(end_tev, end_pre)
-print(tot_tev, tot_pre)
+print(sum(pre_y)/NUM_TRIALS, sum(tev_y)/NUM_TRIALS)
+plt.scatter(tev_x, tev_y)
+plt.scatter(pre_x, pre_y, marker='x')
+plt.xlabel(r'$C^10(p)$')
+plt.ylabel(r'$I_{BR}$')
+plt.ylim(0.0, 0.2)
+plt.show()
